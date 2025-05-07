@@ -9,7 +9,7 @@ import io
 
 # Set page configuration
 st.set_page_config(
-    page_title="RetinaDX-NN: Alzheimer's Prediction",
+    page_title="MaculaDX-NN: Alzheimer's Prediction",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -65,13 +65,12 @@ st.markdown("""
     }
     .stTabs [role="tablist"] {
         gap: 10px;
+        justify-content: center;
     }
     .stTabs [role="tab"] {
-        background-color: #E3F2FD;
-        border-radius: 8px 8px 0 0 !important;
-        padding: 12px 24px !important;
-        border: none !important;
-        color: var(--primary-color);
+        border-radius: 5px !important;
+        padding: 12px 30px !important;
+        min-width: 220px;
     }
     .stTabs [role="tab"][aria-selected="true"] {
         background-color: var(--primary-color) !important;
@@ -81,6 +80,36 @@ st.markdown("""
         background-color: var(--accent-color) !important;
         color: white !important;
     }
+    .model-card {
+        text-align: center;
+        padding: 10px;
+        background: white;
+        border-radius: 20px;
+        margin: 10px 0;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+    }
+    .model-card:hover {
+        transform: translateY(-5px);
+    }
+    .model-image {
+        width: 40%;
+        max-width: 40px;
+        margin: 20px auto;
+        border-radius: 15px;
+    }
+    .model-button {
+        width: 80%;
+        margin: 15px auto;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    } 
+    .model-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(25, 118, 210, 0.3);
+    }   
     .model-header {
         background-color: var(--primary-color);
         color: white;
@@ -153,7 +182,7 @@ heatmap_explanation = (
 
 def find_last_conv_layer(model):
     """Find the name of the last convolutional-type layer in a Keras model."""
-    from tensorflow.keras.layers import Conv2D, DepthwiseConv2D
+    from tensorflow.keras.layers import Conv2D, DepthwiseConv2D # type: ignore
     
     for layer in reversed(model.layers):
         if isinstance(layer, (Conv2D, DepthwiseConv2D)):
@@ -232,7 +261,7 @@ def create_report(patient_info, results):
     
     # Add header
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 10, txt="RetinaDX-NN Analysis Report", ln=1, align='C')
+    pdf.cell(200, 10, txt="MaculaDX-NN Analysis Report", ln=1, align='C')
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt=f"Report Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=1)
     pdf.ln(10)
@@ -260,8 +289,8 @@ def create_report(patient_info, results):
     pdf.ln(5)
     
     # Save images temporarily
-    original_path = "temp_original.jpg"
-    heatmap_path = "temp_heatmap.jpg"
+    original_path = "data/temp_original.jpg"
+    heatmap_path = "data/temp_heatmap.jpg"
     results['original_img'].save(original_path)
     Image.fromarray(results['heatmap_img']).save(heatmap_path)
     
@@ -284,7 +313,7 @@ def create_report(patient_info, results):
     return report_bytes
 
 # Main application
-st.title("🧠 RetinaDX-NN: Alzheimer's Risk Assessment")
+st.title("🧠 MaculaDX-NN: Alzheimer's Risk Assessment")
 st.markdown("""
 This professional tool analyzes retinal images to assess Alzheimer's disease risk using advanced deep learning models.
 """)
@@ -295,37 +324,65 @@ if 'selected_model' not in st.session_state:
 
 # Model selection as tabs
 if not st.session_state.selected_model:
-    st.markdown("### Select an AI Model for Analysis")
+    st.markdown("<h2 style='text-align: center; margin-bottom: 30px;'>Select an AI Model for Analysis</h2>", unsafe_allow_html=True)
     
-    # Create tabs for model selection
-    tab1, tab2, tab3 = st.tabs(list(model_options.keys()))
+    # Create tabs with proper names
+    tab1, tab2, tab3 = st.tabs([
+        "EfficientNet-Baseline",
+        "EfficientNet-CBAM",
+        "EfficientNet-SE"
+    ])
     
-    with tab1:
-        st.markdown("""
-        **EfficientNet-Baseline**  
-        Standard EfficientNet B3 architecture for Alzheimer's detection from retinal images.
-        """)
-        if st.button("Select Baseline Model", key="baseline_btn", type="primary"):
-            st.session_state.selected_model = "EfficientNet-Baseline"
-            st.rerun()
+    # Function to load and display images
+    def display_model_card(tab, model_name, image_path, description):
+        with tab:
+            st.markdown(f"""
+            <div class="model-card">
+                <h3>{model_name}</h3>
+                <p>{description}</p>
+                <img class="model-image" src="data:image/png;base64,{image_path}"/>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button(f"Select {model_name.split('-')[-1]} Model", 
+                        key=f"{model_name}_btn", 
+                        type="primary",
+                        use_container_width=True):
+                st.session_state.selected_model = model_name
+                st.rerun()
     
-    with tab2:
-        st.markdown("""
-        **EfficientNet-CBAM**  
-        Enhanced with Convolutional Block Attention Module for improved feature extraction.
-        """)
-        if st.button("Select CBAM Model", key="cbam_btn", type="primary"):
-            st.session_state.selected_model = "EfficientNet-CBAM"
-            st.rerun()
+    # Load and convert images
+    def image_to_base64(path):
+        from PIL import Image
+        import io
+        import base64
+        
+        img = Image.open(path)
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode()
     
-    with tab3:
-        st.markdown("""
-        **EfficientNet-SE**  
-        Enhanced with Squeeze-and-Excitation blocks for channel-wise attention.
-        """)
-        if st.button("Select SE Model", key="se_btn", type="primary"):
-            st.session_state.selected_model = "EfficientNet-SE"
-            st.rerun()
+    # Display cards
+    display_model_card(
+        tab1,
+        "EfficientNet-Baseline",
+        image_to_base64("images/baseline_model.png"),
+        "Standard architecture for Alzheimer's detection from retinal scans"
+    )
+    
+    display_model_card(
+        tab2,
+        "EfficientNet-CBAM",
+        image_to_base64("images/cbam_model.png"),
+        "Enhanced with Convolutional Block Attention Module"
+    )
+    
+    display_model_card(
+        tab3,
+        "EfficientNet-SE",
+        image_to_base64("images/se_model.png"),
+        "With Squeeze-and-Excitation blocks for channel-wise attention"
+    )
 
 # If model is selected, show the analysis page
 else:
@@ -431,7 +488,7 @@ else:
                 st.download_button(
                     label="Download Full Report (PDF)",
                     data=report_bytes,
-                    file_name=f"RetinaDX_Report_{patient_id}_{datetime.datetime.now().strftime('%Y%m%d')}.pdf",
+                    file_name=f"MaculaDX_Report_{patient_id}_{datetime.datetime.now().strftime('%Y%m%d')}.pdf",
                     mime="application/pdf",
                     help="Download a comprehensive PDF report of this analysis",
                     type="primary"
@@ -452,4 +509,4 @@ else:
 
 # Footer
 st.markdown("---")
-st.markdown("© 2025 RetinaDX-NN | AI-powered Alzheimer's risk assessment through retinal analysis")
+st.markdown("© 2025 MaculaDX-NN | AI-powered Alzheimer's risk assessment through macula analysis")
