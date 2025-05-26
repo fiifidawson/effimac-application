@@ -400,14 +400,7 @@ else:
     
     # Load the selected model
     try:
-        # model = tf.keras.models.load_model(model_options[st.session_state.selected_model])
-        model = tf.keras.models.load_model(
-        model_options,
-        custom_objects={
-            'attention_block': attention_block,
-            'Lambda': tf.keras.layers.Lambda
-        }
-        )
+        model = tf.keras.models.load_model(model_options[st.session_state.selected_model])
         st.success(f"Model loaded successfully!")
     except Exception as e:
         st.error(f"Error loading model: {e}")
